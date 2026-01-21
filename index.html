@@ -10,7 +10,7 @@
     #canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
     #controls { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; }
     input, button { margin: 5px; padding: 8px; }
-    #status { color: #ffcc00; margin: 10px; text-align: center; }
+    #status { color: #ffcc00; margin: 10px; text-align: center; font-size: 0.9em; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.min.js"></script>
 </head>
@@ -25,19 +25,22 @@
   </div>
 
   <script>
-    // Set worker immediately
+    // Set worker source immediately
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.worker.min.js';
 
+    // Wait until pdfjsLib is available
     async function waitForPdfjs() {
-      let attempts = 0;
-      while (typeof pdfjsLib === 'undefined' && attempts < 50) { // ~5 seconds
-        await new Promise(r => setTimeout(r, 100));
-        attempts++;
+      const maxWait = 10000; // 10 seconds
+      const interval = 200;
+      let waited = 0;
+      while (typeof pdfjsLib === 'undefined' && waited < maxWait) {
+        await new Promise(resolve => setTimeout(resolve, interval));
+        waited += interval;
       }
       if (typeof pdfjsLib === 'undefined') {
-        throw new Error('PDF.js library failed to initialize - refresh page');
+        throw new Error('PDF.js library failed to load – please refresh the page');
       }
-      console.log('PDF.js ready after ' + attempts * 100 + 'ms');
+      console.log('PDF.js loaded after waiting');
       return true;
     }
 
@@ -45,33 +48,46 @@
       const status = document.getElementById('status');
       const fileInput = document.getElementById('pdfUpload');
       const file = fileInput.files[0];
+
       if (!file) {
-        status.textContent = 'Please select a PDF first';
+        status.textContent = 'Please select a PDF file first';
         return;
       }
 
-      status.textContent = 'Preparing...';
+      status.textContent = 'Loading PDF renderer...';
+
       try {
+        // Wait for library to be ready
         await waitForPdfjs();
 
-        status.textContent = 'Rendering PDF page... (may take 5-30 seconds)';
+        status.textContent = 'Rendering PDF (may take 5–30 seconds)...';
+
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1);
+
         const scale = 2.0;
         const viewport = page.getViewport({ scale });
+
         const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const context = canvas.getContext('2d');
         canvas.height = viewport.height;
         canvas.width = viewport.width;
+
+        // Make canvas responsive
         canvas.style.width = '100%';
         canvas.style.height = '100%';
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        status.textContent = 'Rendered successfully!';
-        setTimeout(() => status.textContent = '', 3000);
+
+        await page.render({
+          canvasContext: context,
+          viewport: viewport
+        }).promise;
+
+        status.textContent = 'Done! Scroll/zoom if needed.';
+        setTimeout(() => status.textContent = '', 4000);
       } catch (err) {
         console.error('Render error:', err);
-        status.textContent = 'Error: ' + (err.message || 'Failed to render PDF - try smaller file or refresh');
+        status.textContent = 'Error: ' + (err.message || 'Failed to render PDF');
       }
     }
   </script>
