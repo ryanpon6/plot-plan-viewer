@@ -10,6 +10,7 @@
     #canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
     #controls { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; }
     input, button { margin: 5px; padding: 8px; }
+    #status { color: #ffcc00; margin: 10px; text-align: center; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.min.js"></script>
 </head>
@@ -18,19 +19,42 @@
     <input type="file" id="pdfUpload" accept="application/pdf">
     <button onclick="renderPDF()">Render First Page</button>
   </div>
+  <div id="status"></div>
   <div id="container">
     <canvas id="canvas"></canvas>
   </div>
 
   <script>
+    // Set worker immediately
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.worker.min.js';
 
+    async function waitForPdfjs() {
+      let attempts = 0;
+      while (typeof pdfjsLib === 'undefined' && attempts < 50) { // ~5 seconds
+        await new Promise(r => setTimeout(r, 100));
+        attempts++;
+      }
+      if (typeof pdfjsLib === 'undefined') {
+        throw new Error('PDF.js library failed to initialize - refresh page');
+      }
+      console.log('PDF.js ready after ' + attempts * 100 + 'ms');
+      return true;
+    }
+
     async function renderPDF() {
+      const status = document.getElementById('status');
       const fileInput = document.getElementById('pdfUpload');
       const file = fileInput.files[0];
-      if (!file) return alert('Select a PDF first');
+      if (!file) {
+        status.textContent = 'Please select a PDF first';
+        return;
+      }
 
+      status.textContent = 'Preparing...';
       try {
+        await waitForPdfjs();
+
+        status.textContent = 'Rendering PDF page... (may take 5-30 seconds)';
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1);
@@ -43,9 +67,11 @@
         canvas.style.width = '100%';
         canvas.style.height = '100%';
         await page.render({ canvasContext: ctx, viewport }).promise;
+        status.textContent = 'Rendered successfully!';
+        setTimeout(() => status.textContent = '', 3000);
       } catch (err) {
-        console.error(err);
-        alert('Error rendering PDF: ' + err.message);
+        console.error('Render error:', err);
+        status.textContent = 'Error: ' + (err.message || 'Failed to render PDF - try smaller file or refresh');
       }
     }
   </script>
