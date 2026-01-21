@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plot Plan Viewer</title>
+  <style>
+    body { margin: 0; padding: 0; font-family: Arial, sans-serif; background: #111; color: #eee; }
+    #container { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+    #canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; }
+    #controls { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; }
+    input, button { margin: 5px; padding: 8px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.min.js"></script>
+</head>
+<body>
+  <div id="controls">
+    <input type="file" id="pdfUpload" accept="application/pdf">
+    <button onclick="renderPDF()">Render First Page</button>
+  </div>
+  <div id="container">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.worker.min.js';
+
+    async function renderPDF() {
+      const fileInput = document.getElementById('pdfUpload');
+      const file = fileInput.files[0];
+      if (!file) return alert('Select a PDF first');
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const page = await pdf.getPage(1);
+        const scale = 2.0;
+        const viewport = page.getViewport({ scale });
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        await page.render({ canvasContext: ctx, viewport }).promise;
+      } catch (err) {
+        console.error(err);
+        alert('Error rendering PDF: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
