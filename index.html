@@ -12,7 +12,7 @@
     input, button { margin: 5px; padding: 8px; }
     #status { color: #ffcc00; margin: 10px; text-align: center; font-size: 1em; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 8px; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.min.js"></script>
+  <script src="https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.min.js"></script>
 </head>
 <body>
   <div id="controls">
@@ -25,27 +25,27 @@
   </div>
 
   <script>
-    // Set worker immediately
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.530/build/pdf.worker.min.js';
+    // Set worker immediately (unpkg version)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.js';
 
     async function waitForPdfjs() {
-      const maxWaitMs = 20000; // 20 seconds
+      const maxWaitMs = 20000;
       const intervalMs = 200;
       let waited = 0;
       const status = document.getElementById('status');
 
       while (typeof pdfjsLib === 'undefined' && waited < maxWaitMs) {
-        status.textContent = `Waiting for PDF library... (${Math.round((maxWaitMs - waited)/1000)}s left)`;
+        status.textContent = `Waiting for PDF renderer (${Math.round((maxWaitMs - waited)/1000)}s left)...`;
         await new Promise(r => setTimeout(r, intervalMs));
         waited += intervalMs;
       }
 
       if (typeof pdfjsLib === 'undefined') {
-        status.textContent = 'PDF library failed to load. Refresh page or try on Wi-Fi / desktop.';
-        throw new Error('PDF.js not available after 20s wait');
+        status.textContent = 'PDF renderer failed to load. Try incognito mode, disable ad blockers, or refresh.';
+        throw new Error('PDF.js unavailable after wait');
       }
 
-      console.log('PDF.js ready after ' + waited + 'ms');
+      console.log('PDF.js ready');
       return true;
     }
 
@@ -55,7 +55,7 @@
       const file = fileInput.files[0];
 
       if (!file) {
-        status.textContent = 'Please select a PDF file first';
+        status.textContent = 'Select a PDF first';
         return;
       }
 
@@ -64,10 +64,8 @@
       try {
         await waitForPdfjs();
 
-        status.textContent = 'Reading file...';
+        status.textContent = 'Processing PDF... (5–40 seconds)';
         const arrayBuffer = await file.arrayBuffer();
-
-        status.textContent = 'Rendering PDF page (5–40 seconds)...';
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const page = await pdf.getPage(1);
 
@@ -83,11 +81,11 @@
 
         await page.render({ canvasContext: ctx, viewport }).promise;
 
-        status.textContent = 'Success! Your plot plan is loaded.';
+        status.textContent = 'Loaded! Zoom/pan with mouse wheel or pinch.';
         setTimeout(() => status.textContent = '', 5000);
       } catch (err) {
-        console.error('Render failed:', err);
-        status.textContent = 'Error: ' + (err.message || 'Failed to process PDF');
+        console.error(err);
+        status.textContent = 'Error: ' + (err.message || 'Failed – check console (F12)');
       }
     }
   </script>
